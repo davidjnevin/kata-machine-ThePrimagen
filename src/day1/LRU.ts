@@ -1,15 +1,115 @@
+type Node<T> = {
+	value: T;
+	next?: Node<T>;
+	prev?: Node<T>;
+}
+
+//for convenience
+function createNode<V>(value: V): Node<V> {
+	return { value };
+}
+
 export default class LRU<K, V> {
-    private length: number;
+	private length: number;
+	private head?: Node<V>;
+	private tail?: Node<V>;
 
-    
+	private lookup: Map<K, Node<V>>;
+	private reverseLookup: Map<Node<V>, K>;
 
-    constructor() {
-    }
 
-    update(key: K, value: V): void {
+	constructor(private capacity: number = 10) {
+		this.length = 0;
+		this.head = this.tail = undefined;
+		this.lookup = new Map<K, Node<V>>();
+		this.reverseLookup = new Map<Node<V>, K>();
+	}
 
-}
-    get(key: K): V | undefined {
+	update(key: K, value: V): void {
+		// does it exist
+		let node = this.lookup.get(key);
+		// if it doesn't we need to insert
+		// 		- check capacity and evict if over
+		if (!node) {
+			node = createNode(value);
+			this.length++;
+			this.prepend(node);
+			this.trimCache();
 
-}
+			// Add the new node to the our lookups
+			this.lookup.set(key, node);
+			this.reverseLookup.set(node, key);
+		} else {
+			// 	if it does, we need to update to the front of the list
+			// 	and update the value (assuming value update is required)
+			this.detach(node);
+			this.prepend(node);
+			node.value = value;
+		}
+
+	}
+	get(key: K): V | undefined {
+
+		// check the cache for the existance
+		const node = this.lookup.get(key);
+		if (!node) {
+			return undefined;
+		}
+
+		// update the value we found and move it to the front
+		this.detach(node);
+		this.prepend(node);
+		//  return out the value found or undefined if not exist
+		return node.value;
+
+	}
+
+	private detach(node: Node<V>) {
+		if (node.prev) {
+			node.prev.next = node.next;
+		}
+		if (node.next) {
+			node.next.prev = node.prev;
+		}
+
+		// if the node is question is both head and tail
+		if (this.length === 1) {
+			this.tail = this.head = undefined;
+		}
+		// if the node in question is the head
+		if (this.head === node) {
+			this.head = this.head.next;
+		}
+		// if the node in question is the tail
+		if (this.tail === node) {
+			this.tail = this.tail.prev;
+		}
+		node.prev = undefined;
+		node.next = undefined;
+	}
+
+	private prepend(node: Node<V>) {
+		if (!this.head) {
+			this.head = this.tail = node;
+			return;
+		}
+
+		node.next = this.head;
+		this.head.prev = node;
+		this.head = node;
+
+	}
+	private trimCache(): void {
+		if (this.length <= this.capacity) {
+			return;
+		}
+		const tail = this.tail as Node<V>;
+		this.detach(this.tail as Node<V>);
+		// We now need to remove the node form our lookups
+		const key = this.reverseLookup.get(tail) as K;
+		this.lookup.delete(key);
+		this.reverseLookup.delete(tail);
+		this.length--;
+
+	}
 }
