@@ -5,3 +5,4 @@ stats.json
 
 
 kata-machine.code-workspace
+*.DS_Store
